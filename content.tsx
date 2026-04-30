@@ -277,7 +277,7 @@ function PostTagUI({ url, handle, rkey, suggestedTags = [] }: { url: string, han
         `}</style>
 
             {/* --- 1. THE TAG LOOP --- */}
-            {tags.filter(t => t.score >= -3 || t.userVote !== 0).map(({tag, score, userVote}) => {
+            {tags.filter(t => t.score >= -3).map(({tag, score, userVote}) => {
                 const isHovered = hoveredTag === tag;
 
                 return (
