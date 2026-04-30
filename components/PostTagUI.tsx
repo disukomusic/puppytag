@@ -2,12 +2,18 @@
 import { createPortal } from "react-dom"
 import { useBlueskySession } from "../hooks/useBlueskySession"
 import placeholderIcon from "../assets/icon.png"
+import actionBarIcon from "../assets/icons/SVG/action-bar-icon.svg"
+import puppyTagIcon from "../assets/icons/SVG/PuppyTagIcon.svg"
 
 export function PostTagUI({ url, handle, rkey, suggestedTags = [] }: { url: string, handle: string, rkey: string, suggestedTags?: string[] }) {
     const [tags, setTags] = useState<{tag: string, score: number, userVote: number}[]>([])
     const [isAdding, setIsAdding] = useState(false)
+    const [isExpanded, setIsExpanded] = useState(false) // Controls visibility of the bottom section
     const [inputValue, setInputValue] = useState("")
     const [suggestions, setSuggestions] = useState<string[]>([])
+
+    // State for tracking the dynamic toolbar portal target
+    const [toolbarNode, setToolbarNode] = useState<HTMLElement | null>(null)
 
     const uiRef = useRef<HTMLDivElement>(null)
     const inputContainerRef = useRef<HTMLDivElement>(null)
@@ -22,10 +28,71 @@ export function PostTagUI({ url, handle, rkey, suggestedTags = [] }: { url: stri
         chrome.runtime.sendMessage(
             { action: "get_tags", payload: { rkey, voter_did: currentUserDid } },
             (response) => {
-                if (response && response.data) setTags(response.data)
+                if (response && response.data) {
+                    setTags(response.data)
+                    // Auto-expand the bottom section if the post already has tags
+                    if (response.data.length > 0) {
+                        setIsExpanded(true)
+                    }
+                }
             }
         )
     }, [rkey, currentUserDid])
+
+    // --- UPDATED: Robust Portal Injection Logic ---
+    useEffect(() => {
+        let injectedNode: HTMLElement | null = null;
+
+        const injectToolbarTarget = () => {
+            if (!uiRef.current) return;
+
+            const postContainer = uiRef.current.closest('div[data-testid^="feedItem"], div[data-testid^="postThreadItem"]');
+            if (!postContainer) return;
+
+            const dropdownBtn = postContainer.querySelector('[data-testid="postDropdownBtn"]');
+            if (!dropdownBtn) return;
+
+            // Bluesky uses React Native Web, which wraps elements in column-flex divs by default.
+            // We must traverse UP to find the actual horizontal row container.
+            let flexRowParent = dropdownBtn.parentElement;
+            while (flexRowParent && flexRowParent !== document.body) {
+                const style = window.getComputedStyle(flexRowParent);
+                if (style.flexDirection === 'row') {
+                    break;
+                }
+                flexRowParent = flexRowParent.parentElement;
+            }
+
+            // Fallback if somehow we can't find the row
+            if (!flexRowParent || flexRowParent === document.body) {
+                flexRowParent = dropdownBtn.parentElement;
+            }
+
+            // Prevent duplicating the wrapper node
+            injectedNode = flexRowParent.querySelector('.puppytag-toolbar-node') as HTMLElement;
+            if (!injectedNode) {
+                injectedNode = document.createElement('div');
+                injectedNode.className = 'puppytag-toolbar-node';
+                injectedNode.style.display = 'flex';
+                injectedNode.style.alignItems = 'center';
+                injectedNode.style.justifyContent = 'center';
+
+                // Prepend drops it at the very start of the row container
+                flexRowParent.prepend(injectedNode);
+            }
+            setToolbarNode(injectedNode);
+        };
+
+        // Slight delay ensures Bluesky's DOM is completely mounted
+        const timeoutId = setTimeout(injectToolbarTarget, 100);
+
+        return () => {
+            clearTimeout(timeoutId);
+            if (injectedNode && injectedNode.parentNode) {
+                injectedNode.remove();
+            }
+        };
+    }, [rkey]); // Dependency changed to rkey so it doesn't unmount when tags are added
 
     //Render on top tag behavior
     const [hoveredTag, setHoveredTag] = useState<string | null>(null)
@@ -228,229 +295,264 @@ export function PostTagUI({ url, handle, rkey, suggestedTags = [] }: { url: stri
 
     const activeTagObj = tags.find(t => t.tag === hoveredTag);
 
-    return (
-        <div ref={uiRef} style={{ display: 'flex', gap: '8px', padding: '0px 14px 10px', flexWrap: 'wrap', alignItems: 'center' }}>
+    // This is the specific blue-bordered inline button. 
+    const addTagUI = isAdding ? (
+        <div
+            ref={inputContainerRef}
+            style={{ position: 'relative', animation: 'tagPop 0.2s ease-out forwards' }}
+            onClick={stopPropagation}
+        >
+            <input
+                autoFocus
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder="type tag..."
+                onKeyDown={(e) => {
+                    e.stopPropagation();
+                    if (e.key === 'Enter') submitTag(inputValue);
+                    if (e.key === 'Escape') {
+                        setIsAdding(false);
+                        setInputValue("");
+                    }
+                }}
+                style={{
+                    background: '#161e27', color: '#fff', border: '1px solid #0085ff',
+                    borderRadius: '12px', padding: '2px 8px', fontSize: '12px',
+                    outline: 'none', width: '120px',
+                    transition: 'box-shadow 0.2s ease',
+                    boxShadow: '0 0 0 2px rgba(0, 133, 255, 0.2)'
+                }}
+            />
 
-            {/* INJECTED KEYFRAMES FOR ANIMATIONS */}
-            <style>{`
-            @keyframes tagPop {
-                0% { opacity: 0; transform: scale(0.85); }
-                100% { opacity: 1; transform: scale(1); }
-            }
-            @keyframes dropdownSlide {
-                0% { opacity: 0; transform: translateY(-6px); }
-                100% { opacity: 1; transform: translateY(0); }
-            }
-            @keyframes drawerRise {
-                0% { opacity: 0; transform: translateX(-50%) translateY(8px); }
-                100% { opacity: 1; transform: translateX(-50%) translateY(0); }
-            }
-            .tactile-btn { transition: transform 0.1s ease, background 0.2s ease, color 0.2s ease; }
-            .tactile-btn:active { transform: scale(0.92); }
-        `}</style>
-
-            {/* --- 1. THE TAG LOOP --- */}
-            {tags.filter(t => t.score >= -3).map(({tag, score, userVote}) => {
-                const isHovered = hoveredTag === tag;
-
-                return (
-                    <div
-                        key={tag}
-                        onMouseEnter={(e) => handleMouseEnter(tag, e)}
-                        onMouseLeave={handleMouseLeave}
-                        style={{
-                            position: 'relative',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            animation: 'tagPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards'
-                        }}
-                    >
-                        <a
-                            className="tactile-btn"
-                            href={`/profile/puppytag.bsky.social/feed/${tag}`}
-                            onClick={(e) => e.stopPropagation()}
-                            style={{
-                                background: '#1e293b', borderRadius: '16px', padding: '2px 8px',
-                                color: '#fff', fontSize: '12px', fontWeight: 'bold', textDecoration: 'none',
-                                boxShadow: isHovered ? '0 2px 8px rgba(0,0,0,0.4)' : 'none'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.background = '#334155'}
-                            onMouseLeave={(e) => e.currentTarget.style.background = '#1e293b'}
+            {inputValue && (
+                <div style={{
+                    position: 'absolute', top: '100%', left: 0, marginTop: '4px',
+                    backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: '8px',
+                    display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                    zIndex: 2147483647, minWidth: '100%', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.8)',
+                    whiteSpace: 'nowrap',
+                    animation: 'dropdownSlide 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+                }}>
+                    {!suggestions.includes(inputValue) && (
+                        <div
+                            onClick={(e) => { stopPropagation(e); submitTag(inputValue); }}
+                            style={{ padding: '6px 10px', fontSize: '12px', color: '#38bdf8', cursor: 'pointer', borderBottom: '1px solid #334155', fontWeight: 'bold', transition: 'background 0.1s ease' }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = '#0f172a'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                         >
-                            #{tag}
-                        </a>
-
-                        {currentUserHandle === handle && (
-                            <button
-                                className="tactile-btn"
-                                onClick={(e) => { e.stopPropagation(); authorDeleteTag(tag); }}
-                                style={{
-                                    position: 'absolute', top: '-6px', right: '-6px', width: '18px', height: '18px',
-                                    background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%',
-                                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    fontSize: '10px', fontWeight: 'bold', boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
-                                    zIndex: 10, opacity: isHovered ? 1 : 0, transform: isHovered ? 'scale(1)' : 'scale(0.5)',
-                                    transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                                    pointerEvents: isHovered ? 'auto' : 'none'
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = '#dc2626'}
-                                onMouseLeave={(e) => e.currentTarget.style.background = '#ef4444'}
-                            >
-                                ✕
-                            </button>
-                        )}
-                    </div>
-                );
-            })}
-
-            {/* --- 2. SUGGESTED TAGS --- */}
-            {unaddedSuggestions.length > 0 && !isAdding && (
-                <button
-                    className="tactile-btn"
-                    onClick={(e) => { stopPropagation(e); submitSuggestedTags(); }}
-                    style={{ background: 'transparent', color: '#10b981', border: '1px solid #10b981', borderRadius: '12px', cursor: 'pointer', fontSize: '12px', padding: '2px 8px', fontWeight: 'bold' }}
-                >
-                    + {getSuggestionText()}
-                </button>
-            )}
-
-            {/* --- 3. ADD TAG INPUT --- */}
-            {isAdding ? (
-                <div
-                    ref={inputContainerRef}
-                    style={{ position: 'relative', animation: 'tagPop 0.2s ease-out forwards' }}
-                    onClick={stopPropagation}
-                >
-                    <input
-                        autoFocus
-                        value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
-                        placeholder="type tag..."
-                        onKeyDown={(e) => {
-                            e.stopPropagation();
-                            if (e.key === 'Enter') submitTag(inputValue);
-                            if (e.key === 'Escape') {
-                                setIsAdding(false);
-                                setInputValue("");
-                            }
-                        }}
-                        style={{
-                            background: '#161e27', color: '#fff', border: '1px solid #0085ff',
-                            borderRadius: '12px', padding: '2px 8px', fontSize: '12px',
-                            outline: 'none', width: '120px',
-                            transition: 'box-shadow 0.2s ease',
-                            boxShadow: '0 0 0 2px rgba(0, 133, 255, 0.2)'
-                        }}
-                    />
-
-                    {inputValue && (
-                        <div style={{
-                            position: 'absolute', top: '100%', left: 0, marginTop: '4px',
-                            backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: '8px',
-                            display: 'flex', flexDirection: 'column', overflow: 'hidden',
-                            zIndex: 2147483647, minWidth: '100%', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.8)',
-                            whiteSpace: 'nowrap',
-                            animation: 'dropdownSlide 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards'
-                        }}>
-                            {!suggestions.includes(inputValue) && (
-                                <div
-                                    onClick={(e) => { stopPropagation(e); submitTag(inputValue); }}
-                                    style={{ padding: '6px 10px', fontSize: '12px', color: '#38bdf8', cursor: 'pointer', borderBottom: '1px solid #334155', fontWeight: 'bold', transition: 'background 0.1s ease' }}
-                                    onMouseEnter={(e) => e.currentTarget.style.background = '#0f172a'}
-                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                                >
-                                    Create "#{inputValue}"
-                                </div>
-                            )}
-
-                            {suggestions.map(s => (
-                                <div
-                                    key={s}
-                                    onClick={(e) => { stopPropagation(e); submitTag(s); }}
-                                    style={{ padding: '6px 10px', fontSize: '12px', color: '#fff', cursor: 'pointer', transition: 'background 0.1s ease' }}
-                                    onMouseEnter={(e) => e.currentTarget.style.background = '#0f172a'}
-                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                                >
-                                    #{s}
-                                </div>
-                            ))}
+                            Create "#{inputValue}"
                         </div>
                     )}
+
+                    {suggestions.map(s => (
+                        <div
+                            key={s}
+                            onClick={(e) => { stopPropagation(e); submitTag(s); }}
+                            style={{ padding: '6px 10px', fontSize: '12px', color: '#fff', cursor: 'pointer', transition: 'background 0.1s ease' }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = '#0f172a'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                            #{s}
+                        </div>
+                    ))}
                 </div>
-            ) : (
-                <button
-                    className="tactile-btn"
-                    onClick={(e) => { stopPropagation(e); setIsAdding(true); }}
-                    style={{ 
-                        background: 'transparent', 
-                        border: 'none', 
-                        padding: 0,
-                        cursor: 'pointer', 
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                    }}
-                >
-                    <img
-                        src={placeholderIcon}
-                        alt="Add tag"
-                        style={{ width: '14px', height: '14px', display: 'block' }}
-                    />
-                </button>
-            )}
-
-            {/* --- 4. THE PORTALED DRAWER --- */}
-            {hoveredTag && activeTagObj && drawerCoords && createPortal(
-                <div
-                    onMouseEnter={() => { if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current); }}
-                    onMouseLeave={handleMouseLeave}
-                    style={{
-                        position: 'fixed',
-                        top: `${drawerCoords.top}px`,
-                        left: `${drawerCoords.left}px`,
-                        display: 'flex', alignItems: 'center', background: '#0f172a',
-                        borderRadius: '12px', padding: '2px 8px', gap: '8px',
-                        zIndex: 2147483647,
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.6)',
-                        whiteSpace: 'nowrap',
-                        animation: 'drawerRise 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards'
-                    }}
-                >
-                    <button
-                        className="tactile-btn"
-                        onClick={(e) => { e.stopPropagation(); handleVote(activeTagObj.tag, 1); }}
-                        style={{
-                            background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
-                            color: activeTagObj.userVote === 1 ? '#38bdf8' : '#94a3b8',
-                            display: 'flex', alignItems: 'center'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.color = '#38bdf8'}
-                        onMouseLeave={(e) => e.currentTarget.style.color = activeTagObj.userVote === 1 ? '#38bdf8' : '#94a3b8'}
-                    >
-                        ▲
-                    </button>
-
-                    <span style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 'bold' }}>
-                    {activeTagObj.score}
-                </span>
-
-                    <button
-                        className="tactile-btn"
-                        onClick={(e) => { e.stopPropagation(); handleVote(activeTagObj.tag, -1); }}
-                        style={{
-                            background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
-                            color: activeTagObj.userVote === -1 ? '#ef4444' : '#94a3b8',
-                            display: 'flex', alignItems: 'center'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
-                        onMouseLeave={(e) => e.currentTarget.style.color = activeTagObj.userVote === -1 ? '#ef4444' : '#94a3b8'}
-                    >
-                        ▼
-                    </button>
-                </div>,
-                document.body
             )}
         </div>
+    ) : (
+        <button
+            className="tactile-btn"
+            onClick={(e) => { stopPropagation(e); setIsAdding(true); }}
+            style={{
+                background: 'transparent',
+                color: '#0085ff',
+                border: '1px solid #0085ff',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                padding: '2px 8px',
+                fontWeight: 'bold'
+            }}
+        >
+            + 
+        </button>
+    );
+
+    // Extracted the toggle button which sits purely in the Action Bar
+    const toggleTagsUI = (
+        <button
+            className="tactile-btn"
+            onClick={(e) => { stopPropagation(e); setIsExpanded(prev => !prev); }}
+            style={{
+                background: 'transparent',
+                border: 'none',
+                padding: '5px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transform: 'scale(0.85)' // Match action bar icon size
+            }}
+            title="Toggle PuppyTags"
+        >
+            <img
+                src={puppyTagIcon}
+                alt="Toggle tags"
+                style={{ width: '24px', height: '24px', display: 'block'}}
+            />
+        </button>
+    );
+
+    // To prevent total loss of UI if the toolbar portal fails, we ensure the bottom section 
+    // is visible if we are missing a toolbarNode. Otherwise, rely on isExpanded.
+    const isVisible = isExpanded || !toolbarNode;
+
+    return (
+        <>
+            {/* INJECTED KEYFRAMES FOR ANIMATIONS */}
+            <style>{`
+                @keyframes tagPop {
+                    0% { opacity: 0; transform: scale(0.85); }
+                    100% { opacity: 1; transform: scale(1); }
+                }
+                @keyframes dropdownSlide {
+                    0% { opacity: 0; transform: translateY(-6px); }
+                    100% { opacity: 1; transform: translateY(0); }
+                }
+                @keyframes drawerRise {
+                    0% { opacity: 0; transform: translateX(-50%) translateY(8px); }
+                    100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+                }
+                .tactile-btn { transition: transform 0.1s ease, background 0.2s ease, color 0.2s ease; }
+                .tactile-btn:active { transform: scale(0.92); }
+            `}</style>
+
+            {/* Always push the toggle button to the action bar using Portal */}
+            {toolbarNode && createPortal(toggleTagsUI, toolbarNode)}
+
+            {/* Main Tags Area Container - Uses display none/flex to act as an expander while preserving the ref target */}
+            <div ref={uiRef} style={{ display: isVisible ? 'flex' : 'none', gap: '8px', padding: '0px 14px 10px', flexWrap: 'wrap', alignItems: 'center' }}>
+
+                {/* --- 1. THE TAG LOOP --- */}
+                {tags.filter(t => t.score >= -3).map(({tag, score, userVote}) => {
+                    const isHovered = hoveredTag === tag;
+
+                    return (
+                        <div
+                            key={tag}
+                            onMouseEnter={(e) => handleMouseEnter(tag, e)}
+                            onMouseLeave={handleMouseLeave}
+                            style={{
+                                position: 'relative',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                animation: 'tagPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards'
+                            }}
+                        >
+                            <a
+                                className="tactile-btn"
+                                href={`/profile/puppytag.bsky.social/feed/${tag}`}
+                                onClick={(e) => e.stopPropagation()}
+                                style={{
+                                    background: '#1e293b', borderRadius: '16px', padding: '2px 8px',
+                                    color: '#fff', fontSize: '12px', fontWeight: 'bold', textDecoration: 'none',
+                                    boxShadow: isHovered ? '0 2px 8px rgba(0,0,0,0.4)' : 'none'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = '#334155'}
+                                onMouseLeave={(e) => e.currentTarget.style.background = '#1e293b'}
+                            >
+                                #{tag}
+                            </a>
+
+                            {currentUserHandle === handle && (
+                                <button
+                                    className="tactile-btn"
+                                    onClick={(e) => { e.stopPropagation(); authorDeleteTag(tag); }}
+                                    style={{
+                                        position: 'absolute', top: '-6px', right: '-6px', width: '18px', height: '18px',
+                                        background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%',
+                                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontSize: '10px', fontWeight: 'bold', boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
+                                        zIndex: 10, opacity: isHovered ? 1 : 0, transform: isHovered ? 'scale(1)' : 'scale(0.5)',
+                                        transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                                        pointerEvents: isHovered ? 'auto' : 'none'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = '#dc2626'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = '#ef4444'}
+                                >
+                                    ✕
+                                </button>
+                            )}
+                        </div>
+                    );
+                })}
+
+                {/* --- 2. SUGGESTED TAGS --- */}
+                {unaddedSuggestions.length > 0 && !isAdding && (
+                    <button
+                        className="tactile-btn"
+                        onClick={(e) => { stopPropagation(e); submitSuggestedTags(); }}
+                        style={{ background: 'transparent', color: '#10b981', border: '1px solid #10b981', borderRadius: '12px', cursor: 'pointer', fontSize: '12px', padding: '2px 8px', fontWeight: 'bold' }}
+                    >
+                        + {getSuggestionText()}
+                    </button>
+                )}
+
+                {/* --- 3. ADD TAG INPUT / BUTTON --- */}
+                {addTagUI}
+
+                {/* --- 4. THE PORTALED DRAWER --- */}
+                {hoveredTag && activeTagObj && drawerCoords && createPortal(
+                    <div
+                        onMouseEnter={() => { if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current); }}
+                        onMouseLeave={handleMouseLeave}
+                        style={{
+                            position: 'fixed',
+                            top: `${drawerCoords.top}px`,
+                            left: `${drawerCoords.left}px`,
+                            display: 'flex', alignItems: 'center', background: '#0f172a',
+                            borderRadius: '12px', padding: '2px 8px', gap: '8px',
+                            zIndex: 2147483647,
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.6)',
+                            whiteSpace: 'nowrap',
+                            animation: 'drawerRise 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+                        }}
+                    >
+                        <button
+                            className="tactile-btn"
+                            onClick={(e) => { e.stopPropagation(); handleVote(activeTagObj.tag, 1); }}
+                            style={{
+                                background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
+                                color: activeTagObj.userVote === 1 ? '#38bdf8' : '#94a3b8',
+                                display: 'flex', alignItems: 'center'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.color = '#38bdf8'}
+                            onMouseLeave={(e) => e.currentTarget.style.color = activeTagObj.userVote === 1 ? '#38bdf8' : '#94a3b8'}
+                        >
+                            ▲
+                        </button>
+
+                        <span style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 'bold' }}>
+                        {activeTagObj.score}
+                    </span>
+
+                        <button
+                            className="tactile-btn"
+                            onClick={(e) => { e.stopPropagation(); handleVote(activeTagObj.tag, -1); }}
+                            style={{
+                                background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
+                                color: activeTagObj.userVote === -1 ? '#ef4444' : '#94a3b8',
+                                display: 'flex', alignItems: 'center'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
+                            onMouseLeave={(e) => e.currentTarget.style.color = activeTagObj.userVote === -1 ? '#ef4444' : '#94a3b8'}
+                        >
+                            ▼
+                        </button>
+                    </div>,
+                    document.body
+                )}
+            </div>
+        </>
     )
 }

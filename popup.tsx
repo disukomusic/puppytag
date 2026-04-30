@@ -81,13 +81,13 @@ export default function IndexPopup() {
     }
 
     return (
-        <div style={{ padding: 16, width: 350, fontFamily: "sans-serif", background: "#0f172a", color: "#fff", minHeight: 400, display: "flex", flexDirection: "column", maxHeight: "600px" }}>
-            <h2 style={{ margin: "0 0 16px 0", fontSize: "16px", color: "#38bdf8" }}>Puppytag Multisearch</h2>
+        <div style={{ padding: 16, width: 350, fontFamily: "sans-serif", background: "#151d28", color: "#fff", minHeight: 400, display: "flex", flexDirection: "column", maxHeight: "600px" }}>
+            <h2 style={{ margin: "0 0 16px 0", fontSize: "16px", color: "#0f73ff" }}>Puppytag Multisearch</h2>
 
             {/* Selected Tags */}
             <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "12px" }}>
                 {selectedTags.map(tag => (
-                    <span key={tag} style={{ background: "#1e293b", padding: "4px 8px", borderRadius: "12px", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span key={tag} style={{ background: "#222e3f", padding: "4px 8px", borderRadius: "12px", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
                         #{tag}
                         <button
                             onClick={() => removeTag(tag)}
@@ -107,18 +107,18 @@ export default function IndexPopup() {
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') addTag(inputValue)
                     }}
-                    style={{ width: "100%", boxSizing: "border-box", background: "#161e27", color: "#fff", border: "1px solid #334155", borderRadius: "8px", padding: "8px", outline: "none" }}
+                    style={{ width: "100%", boxSizing: "border-box", background: "#151d28", color: "#fff", border: "1px solid #222e3f", borderRadius: "8px", padding: "8px", outline: "none" }}
                 />
 
                 {/* Autocomplete Dropdown */}
                 {suggestions.length > 0 && (
-                    <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", marginTop: "4px", zIndex: 10, overflow: "hidden" }}>
+                    <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#222e3f", border: "1px solid #222e3f", borderRadius: "8px", marginTop: "4px", zIndex: 10, overflow: "hidden" }}>
                         {suggestions.filter(s => !selectedTags.includes(s)).map(s => (
                             <div
                                 key={s}
                                 onClick={() => addTag(s)}
-                                style={{ padding: "8px", cursor: "pointer", fontSize: "13px", borderBottom: "1px solid #0f172a" }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = '#334155'}
+                                style={{ padding: "8px", cursor: "pointer", fontSize: "13px", borderBottom: "1px solid #151d28" }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = '#2e3d4f'}
                                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                             >
                                 #{s}
@@ -130,7 +130,7 @@ export default function IndexPopup() {
 
             {/* Results */}
             <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
-                <h3 style={{ fontSize: "14px", borderBottom: "1px solid #334155", paddingBottom: "8px" }}>
+                <h3 style={{ fontSize: "14px", borderBottom: "1px solid #222e3f", paddingBottom: "8px" }}>
                     {isLoading ? "Loading..." : `Found ${postDetails.length} posts`}
                 </h3>
 
@@ -145,13 +145,13 @@ export default function IndexPopup() {
                                 href={`https://bsky.app/profile/${post.author.handle}/post/${rkey}`}
                                 target="_blank"
                                 rel="noreferrer"
-                                style={{ display: "flex", gap: "10px", background: "#1e293b", padding: "10px", borderRadius: "8px", color: "#e2e8f0", textDecoration: "none" }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = '#334155'}
-                                onMouseLeave={(e) => e.currentTarget.style.background = '#1e293b'}
+                                style={{ display: "flex", gap: "10px", background: "#222e3f", padding: "10px", borderRadius: "8px", color: "#e2e8f0", textDecoration: "none" }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = '#2e3d4f'}
+                                onMouseLeave={(e) => e.currentTarget.style.background = '#222e3f'}
                             >
                                 {thumb && <img src={thumb} style={{ width: "48px", height: "48px", borderRadius: "6px", objectFit: "cover", flexShrink: 0 }} alt="thumbnail" />}
                                 <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
-                                    <span style={{ fontSize: "13px", fontWeight: "bold", color: "#38bdf8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                    <span style={{ fontSize: "13px", fontWeight: "bold", color: "#0f73ff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                         @{post.author.handle}
                                     </span>
                                     <span style={{ fontSize: "12px", color: "#94a3b8", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", marginTop: "2px" }}>

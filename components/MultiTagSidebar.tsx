@@ -100,7 +100,7 @@ export function MultiTagSidebar() {
     return (
         <div style={{
             position: 'fixed', bottom: '24px', right: '24px', zIndex: 2147483647,
-            background: '#0f172a', border: '1px solid #334155', borderRadius: '16px',
+            background: '#151d28', border: '1px solid #222e3f', borderRadius: '16px',
             width: `${dimensions.width}px`, height: `${dimensions.height}px`,
             minWidth: '250px', minHeight: '350px',
             maxWidth: '90vw', maxHeight: '90vh',
@@ -145,15 +145,15 @@ export function MultiTagSidebar() {
                 </svg>
             </div>
 
-            <div style={{ background: '#1e293b', padding: '12px 16px 12px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155' }}>
-                <h3 style={{ margin: 0, color: '#38bdf8', fontSize: '15px' }}>Puppytag Multisearch</h3>
+            <div style={{ background: '#222e3f', padding: '12px 16px 12px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #222e3f' }}>
+                <h3 style={{ margin: 0, color: '#0f73ff', fontSize: '15px' }}>Puppytag Multisearch</h3>
                 <button onClick={() => setIsOpen(false)} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '16px' }}>✕</button>
             </div>
 
             <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "12px" }}>
                     {selectedTags.map(tag => (
-                        <span key={tag} style={{ background: "#1e293b", padding: "4px 8px", borderRadius: "12px", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px", color: '#fff' }}>
+                        <span key={tag} style={{ background: "#222e3f", padding: "4px 8px", borderRadius: "12px", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px", color: '#fff' }}>
                             #{tag}
                             <button onClick={() => removeTag(tag)} style={{ background: "transparent", border: "none", color: "#ef4444", cursor: "pointer", padding: 0 }}>✕</button>
                         </span>
@@ -166,17 +166,17 @@ export function MultiTagSidebar() {
                         onChange={(e) => setInputValue(e.target.value)}
                         placeholder="Search tags..."
                         onKeyDown={(e) => { if (e.key === 'Enter') addTag(inputValue) }}
-                        style={{ width: "100%", boxSizing: "border-box", background: "#161e27", color: "#fff", border: "1px solid #334155", borderRadius: "8px", padding: "8px", outline: "none" }}
+                        style={{ width: "100%", boxSizing: "border-box", background: "#151d28", color: "#fff", border: "1px solid #222e3f", borderRadius: "8px", padding: "8px", outline: "none" }}
                     />
 
                     {suggestions.length > 0 && (
-                        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", marginTop: "4px", zIndex: 10, overflow: "hidden" }}>
+                        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#222e3f", border: "1px solid #222e3f", borderRadius: "8px", marginTop: "4px", zIndex: 10, overflow: "hidden" }}>
                             {suggestions.filter(s => !selectedTags.includes(s)).map(s => (
                                 <div
                                     key={s}
                                     onClick={() => addTag(s)}
-                                    style={{ padding: "8px", cursor: "pointer", fontSize: "13px", color: '#fff', borderBottom: "1px solid #0f172a" }}
-                                    onMouseEnter={(e) => e.currentTarget.style.background = '#334155'}
+                                    style={{ padding: "8px", cursor: "pointer", fontSize: "13px", color: '#fff', borderBottom: "1px solid #151d28" }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = '#2e3d4f'}
                                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                                 >
                                     #{s}
@@ -200,13 +200,13 @@ export function MultiTagSidebar() {
                                 <a
                                     key={post.uri}
                                     href={`https://bsky.app/profile/${post.author.handle}/post/${rkey}`}
-                                    style={{ display: "flex", gap: "10px", background: "#1e293b", padding: "10px", borderRadius: "8px", color: "#e2e8f0", textDecoration: "none" }}
-                                    onMouseEnter={(e) => e.currentTarget.style.background = '#334155'}
-                                    onMouseLeave={(e) => e.currentTarget.style.background = '#1e293b'}
+                                    style={{ display: "flex", gap: "10px", background: "#222e3f", padding: "10px", borderRadius: "8px", color: "#e2e8f0", textDecoration: "none" }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = '#2e3d4f'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = '#222e3f'}
                                 >
                                     {thumb && <img src={thumb} style={{ width: "48px", height: "48px", borderRadius: "6px", objectFit: "cover", flexShrink: 0 }} alt="thumbnail" />}
                                     <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
-                                        <span style={{ fontSize: "13px", fontWeight: "bold", color: "#38bdf8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                        <span style={{ fontSize: "13px", fontWeight: "bold", color: "#0f73ff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                             @{post.author.handle}
                                         </span>
                                         <span style={{ fontSize: "12px", color: "#94a3b8", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", marginTop: "2px" }}>

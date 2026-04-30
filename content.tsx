@@ -20,41 +20,62 @@ export default function TaggerEngine() {
         }
 
         const observer = new MutationObserver(() => {
-            const links = document.querySelectorAll('a[href*="/post/"]')
+            // 1. Query the containers directly instead of the links
+            const containers = document.querySelectorAll('div[data-testid^="feedItem"], div[data-testid^="postThreadItem"]')
 
-            links.forEach(link => {
-                const href = link.getAttribute('href') || ""
-                const urlMatch = href.match(/profile\/([^\/]+)\/post\/([a-zA-Z0-9_-]+)/)
+            containers.forEach((container: HTMLElement) => {
+                // Skip if we already injected our UI here
+                if (container.querySelector('.bsky-tagger-ui')) return
 
-                if (!urlMatch) return
+                let handle = ""
+                let rkey = ""
 
-                const container = link.closest('div[data-testid^="feedItem"], div[data-testid^="postThreadItem"]') as HTMLElement
-
-                if (container && !container.querySelector('.bsky-tagger-ui')) {
-
-                    const postTextElement = container.querySelector('div[data-testid="postText"]');
-                    const textContent = postTextElement ? postTextElement.textContent : "";
-                    const hashtagMatches = textContent?.match(/#([a-zA-Z0-9_]+)/g);
-
-                    const suggestedTags = hashtagMatches
-                        ? Array.from(new Set(hashtagMatches.map(t => t.slice(1).toLowerCase())))
-                        : [];
-
-                    const wrapper = document.createElement("div")
-                    wrapper.className = "bsky-tagger-ui"
-                    wrapper.style.width = "100%"
-                    container.appendChild(wrapper)
-
-                    const root = createRoot(wrapper)
-                    root.render(
-                        <PostTagUI
-                            url={`https://bsky.app${href}`}
-                            handle={urlMatch[1]}
-                            rkey={urlMatch[2]}
-                            suggestedTags={suggestedTags}
-                        />
-                    )
+                // STRATEGY A: Look for the timestamp link (Works for the Feed & Replies)
+                const postLink = container.querySelector('a[href*="/post/"]')
+                if (postLink) {
+                    const href = postLink.getAttribute('href') || ""
+                    const urlMatch = href.match(/profile\/([^\/]+)\/post\/([a-zA-Z0-9_-]+)/)
+                    if (urlMatch) {
+                        handle = urlMatch[1]
+                        rkey = urlMatch[2]
+                    }
                 }
+
+                // STRATEGY B: Fallback for the focused Thread View 
+                // If there's no link, but we are on a post page, it's the root post.
+                if (!rkey || !handle) {
+                    const pathMatch = window.location.pathname.match(/\/profile\/([^\/]+)\/post\/([a-zA-Z0-9_-]+)/)
+                    if (pathMatch) {
+                        handle = pathMatch[1]
+                        rkey = pathMatch[2]
+                    }
+                }
+
+                // If both strategies fail, abort injection for this container
+                if (!rkey || !handle) return
+
+                const postTextElement = container.querySelector('div[data-testid="postText"]');
+                const textContent = postTextElement ? postTextElement.textContent : "";
+                const hashtagMatches = textContent?.match(/#([a-zA-Z0-9_]+)/g);
+
+                const suggestedTags = hashtagMatches
+                    ? Array.from(new Set(hashtagMatches.map(t => t.slice(1).toLowerCase())))
+                    : [];
+
+                const wrapper = document.createElement("div")
+                wrapper.className = "bsky-tagger-ui"
+                wrapper.style.width = "100%"
+                container.appendChild(wrapper)
+
+                const root = createRoot(wrapper)
+                root.render(
+                    <PostTagUI
+                        url={`https://bsky.app/profile/${handle}/post/${rkey}`}
+                        handle={handle}
+                        rkey={rkey}
+                        suggestedTags={suggestedTags}
+                    />
+                )
             })
         })
 
