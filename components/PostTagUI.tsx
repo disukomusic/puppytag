@@ -2,6 +2,10 @@
 import { createPortal } from "react-dom"
 import { useBlueskySession } from "../hooks/useBlueskySession"
 
+import tagLeft from "data-base64:~assets/images/tags/pink/tagLeft.png"
+import tagCenter from "data-base64:~assets/images/tags/pink/tagCenter.png"
+import tagRight from "data-base64:~assets/images/tags/pink/tagRight.png"
+
 export function PostTagUI({ url, handle, rkey, suggestedTags = [] }: { url: string, handle: string, rkey: string, suggestedTags?: string[] }) {
     const [tags, setTags] = useState<{tag: string, score: number, userVote: number}[]>([])
     const [isAdding, setIsAdding] = useState(false)
@@ -270,14 +274,47 @@ export function PostTagUI({ url, handle, rkey, suggestedTags = [] }: { url: stri
                             href={`/profile/puppytag.bsky.social/feed/${tag}`}
                             onClick={(e) => e.stopPropagation()}
                             style={{
-                                background: '#1e293b', borderRadius: '16px', padding: '2px 8px',
-                                color: '#fff', fontSize: '12px', fontWeight: 'bold', textDecoration: 'none',
-                                boxShadow: isHovered ? '0 2px 8px rgba(0,0,0,0.4)' : 'none'
+                                display: 'flex',
+                                alignItems: 'stretch',
+                                height: '24px', // IMPORTANT: Change this to match the exact height of your PNGs
+                                color: '#d643da',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                textDecoration: 'none',
+                                boxShadow: isHovered ? '0 2px 8px rgba(0,0,0,0.4)' : 'none',
+                                transition: 'filter 0.2s ease',
+                                filter: 'brightness(1)' // Baseline for the hover effect
                             }}
-                            onMouseEnter={(e) => e.currentTarget.style.background = '#334155'}
-                            onMouseLeave={(e) => e.currentTarget.style.background = '#1e293b'}
+                            onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.2)'}
+                            onMouseLeave={(e) => e.currentTarget.style.filter = 'brightness(1)'}
                         >
-                            #{tag}
+                            {/* LEFT BONE END */}
+                            <div style={{
+                                width: '16px',
+                                backgroundImage: `url(${tagLeft})`, // Updated
+                                backgroundSize: '100% 100%',
+                                backgroundRepeat: 'no-repeat',
+                            }} />
+
+                            {/* MIDDLE SECTION (Scales horizontally with text) */}
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                padding: '0 2px',
+                                backgroundImage: `url(${tagCenter})`,
+                                backgroundSize: '100% 100%',
+                                backgroundRepeat: 'no-repeat',
+                            }}>
+                                #{tag}
+                            </div>
+
+                            {/* RIGHT BONE END */}
+                            <div style={{
+                                width: '16px',
+                                backgroundImage: `url(${tagRight})`, // Updated
+                                backgroundSize: '100% 100%',
+                                backgroundRepeat: 'no-repeat',
+                            }} />
                         </a>
 
                         {currentUserHandle === handle && (
