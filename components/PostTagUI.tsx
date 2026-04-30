@@ -7,6 +7,10 @@ import tagLeft from "data-base64:~assets/images/tags/pink/tagLeft.png"
 import tagCenter from "data-base64:~assets/images/tags/pink/tagCenter.png"
 import tagRight from "data-base64:~assets/images/tags/pink/tagRight.png"
 
+import tagLeft from "data-base64:~assets/images/tags/pink/tagLeft.png"
+import tagCenter from "data-base64:~assets/images/tags/pink/tagCenter.png"
+import tagRight from "data-base64:~assets/images/tags/pink/tagRight.png"
+
 export function PostTagUI({ url, handle, rkey, suggestedTags = [] }: { url: string, handle: string, rkey: string, suggestedTags?: string[] }) {
     const [tags, setTags] = useState<{tag: string, score: number, userVote: number}[]>([])
     const [isAdding, setIsAdding] = useState(false)
