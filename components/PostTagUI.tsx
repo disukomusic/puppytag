@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState, useRef } from "react"
 import { createPortal } from "react-dom"
 import { useBlueskySession } from "../hooks/useBlueskySession"
+import placeholderIcon from "../assets/icon.png"
 
 export function PostTagUI({ url, handle, rkey, suggestedTags = [] }: { url: string, handle: string, rkey: string, suggestedTags?: string[] }) {
     const [tags, setTags] = useState<{tag: string, score: number, userVote: number}[]>([])
@@ -381,9 +382,21 @@ export function PostTagUI({ url, handle, rkey, suggestedTags = [] }: { url: stri
                 <button
                     className="tactile-btn"
                     onClick={(e) => { stopPropagation(e); setIsAdding(true); }}
-                    style={{ background: 'transparent', color: '#0085ff', border: '1px solid #0085ff', borderRadius: '12px', cursor: 'pointer', fontSize: '12px', padding: '2px 8px', fontWeight: 'bold' }}
+                    style={{ 
+                        background: 'transparent', 
+                        border: 'none', 
+                        padding: 0,
+                        cursor: 'pointer', 
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}
                 >
-                    + Add Tag
+                    <img
+                        src={placeholderIcon}
+                        alt="Add tag"
+                        style={{ width: '14px', height: '14px', display: 'block' }}
+                    />
                 </button>
             )}
 
