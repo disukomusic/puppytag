@@ -1,4 +1,5 @@
 ﻿import { useEffect, useState } from "react"
+import icon from "../assets/icon.png"
 
 export function MultiTagSidebar() {
     const [isOpen, setIsOpen] = useState(false)
@@ -92,7 +93,12 @@ export function MultiTagSidebar() {
                     padding: '12px 20px', fontSize: '24px', fontWeight: 'bold', cursor: 'pointer',
                 }}
             >
-                🐾
+                <img
+                    src={icon}
+                    alt="Open multi-tag"
+                    title="Open multi-tag"
+                    style={{ width: 36, height: 36, display: 'block' }}
+                />
             </button>
         )
     }
