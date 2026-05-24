@@ -223,8 +223,12 @@ export function PostTagUI({ url, handle, rkey, suggestedTags = [] }: { url: stri
     }
 
     const submitTag = async (tagText: string) => {
-        // Split by comma to handle bulk pasting, clean up whitespace and empty strings
-        const tagsToSubmit = tagText.split(',').map(t => t.toLowerCase().trim()).filter(Boolean)
+        // Split by comma or space to handle bulk pasting, clean up whitespace and empty strings
+        // Remove # symbols and normalize the tags
+        const tagsToSubmit = tagText
+            .split(/[,\s]+/)  // Split by comma or whitespace
+            .map(t => t.toLowerCase().trim().replace(/^#/, ''))  // Remove leading # and normalize
+            .filter(Boolean)  // Remove empty strings
 
         // If the user presses enter on an empty input, close the input UI
         if (tagsToSubmit.length === 0) {
