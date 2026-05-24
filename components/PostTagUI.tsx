@@ -1,9 +1,7 @@
 ﻿import { useEffect, useState, useRef } from "react"
 import { createPortal } from "react-dom"
 import { useBlueskySession } from "../hooks/useBlueskySession"
-import placeholderIcon from "../assets/icon.png"
-import actionBarIcon from "../assets/icons/SVG/action-bar-icon.svg"
-import puppyTagIcon from "../assets/icons/SVG/PuppyTagIcon.svg"
+import puppyTagIcon from "../assets/PuppyTagActionButton32px.png"
 
 export function PostTagUI({ url, handle, rkey, suggestedTags = [] }: { url: string, handle: string, rkey: string, suggestedTags?: string[] }) {
     const [tags, setTags] = useState<{tag: string, score: number, userVote: number}[]>([])
