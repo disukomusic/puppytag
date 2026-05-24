@@ -8,16 +8,19 @@ interface MultiTagSearchProps {
 }
 
 export function MultiTagSearch({
-    mode,
-    onClose,
-    dimensions,
-    onDimensionsChange,
-}: MultiTagSearchProps) {
+                                   mode,
+                                   onClose,
+                                   dimensions,
+                                   onDimensionsChange,
+                               }: MultiTagSearchProps) {
     const [inputValue, setInputValue] = useState("")
     const [suggestions, setSuggestions] = useState<string[]>([])
     const [selectedTags, setSelectedTags] = useState<string[]>([])
     const [postDetails, setPostDetails] = useState<any[]>([])
     const [isLoading, setIsLoading] = useState(false)
+
+    // New State for View Mode
+    const [isGalleryView, setIsGalleryView] = useState(false)
 
     // Handle Autocomplete Search
     useEffect(() => {
@@ -175,14 +178,53 @@ export function MultiTagSearch({
 
     const renderPostsList = (): ReactNode => (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <h3 style={mode === "popup" ? { fontSize: "14px", borderBottom: "1px solid #222e3f", paddingBottom: "8px" } : { fontSize: "13px", color: '#94a3b8', margin: '0 0 8px 0' }}>
-                {isLoading ? "Loading..." : mode === "popup" ? `Found ${postDetails.length} posts` : `Found ${postDetails.length} matching posts`}
-            </h3>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: mode === "popup" ? "12px" : "0", overflowY: "auto", paddingRight: mode === "sidebar" ? '4px' : '0', flex: 1 }}>
+            {/* Header with Toggle */}
+            <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                borderBottom: mode === "popup" ? "1px solid #222e3f" : "none",
+                paddingBottom: mode === "popup" ? "8px" : "0",
+                marginBottom: "8px"
+            }}>
+                <h3 style={mode === "popup" ? { fontSize: "14px", margin: 0 } : { fontSize: "13px", color: '#94a3b8', margin: 0 }}>
+                    {isLoading ? "Loading..." : mode === "popup" ? `Found ${postDetails.length} posts` : `Found ${postDetails.length} matching posts`}
+                </h3>
+
+                <button
+                    onClick={() => setIsGalleryView(!isGalleryView)}
+                    disabled={postDetails.length === 0}
+                    style={{
+                        background: postDetails.length === 0 ? "transparent" : "#222e3f",
+                        border: "1px solid #2e3d4f",
+                        color: postDetails.length === 0 ? "#475569" : "#fff",
+                        borderRadius: "6px",
+                        padding: "4px 8px",
+                        fontSize: "11px",
+                        cursor: postDetails.length === 0 ? "not-allowed" : "pointer"
+                    }}
+                >
+                    {isGalleryView ? "☰ List View" : "⊞ Gallery View"}
+                </button>
+            </div>
+
+            {/* Results Container */}
+            <div style={{
+                display: isGalleryView ? "grid" : "flex",
+                flexDirection: isGalleryView ? undefined : "column",
+                gridTemplateColumns: isGalleryView ? "repeat(auto-fill, minmax(130px, 1fr))" : undefined,
+                gap: "8px",
+                marginTop: mode === "popup" ? "4px" : "0",
+                overflowY: "auto",
+                paddingRight: mode === "sidebar" ? '4px' : '0',
+                flex: 1
+            }}>
                 {postDetails.map(post => {
                     const rkey = post.uri.split('/').pop();
-                    const thumb = post.embed?.images?.[0]?.thumb || post.embed?.media?.images?.[0]?.thumb;
+                    const imageNode = post.embed?.images?.[0] || post.embed?.media?.images?.[0];
+                    // Prefer fullsize for gallery view if available, otherwise thumb
+                    const imageSrc = isGalleryView ? (imageNode?.fullsize || imageNode?.thumb) : imageNode?.thumb;
 
                     return (
                         <a
@@ -190,16 +232,46 @@ export function MultiTagSearch({
                             href={`https://bsky.app/profile/${post.author.handle}/post/${rkey}`}
                             target={mode === "popup" ? "_blank" : undefined}
                             rel={mode === "popup" ? "noreferrer" : undefined}
-                            style={{ display: "flex", gap: "10px", background: "#222e3f", padding: "10px", borderRadius: "8px", color: "#e2e8f0", textDecoration: "none" }}
+                            style={{
+                                display: "flex",
+                                flexDirection: isGalleryView ? "column" : "row",
+                                gap: isGalleryView ? "6px" : "10px",
+                                background: "#222e3f",
+                                padding: isGalleryView ? "8px" : "10px",
+                                borderRadius: "8px",
+                                color: "#e2e8f0",
+                                textDecoration: "none"
+                            }}
                             onMouseEnter={(e) => e.currentTarget.style.background = '#2e3d4f'}
                             onMouseLeave={(e) => e.currentTarget.style.background = '#222e3f'}
                         >
-                            {thumb && <img src={thumb} style={{ width: "48px", height: "48px", borderRadius: "6px", objectFit: "cover", flexShrink: 0 }} alt="thumbnail" />}
+                            {imageSrc && (
+                                <img
+                                    src={imageSrc}
+                                    style={{
+                                        width: isGalleryView ? "100%" : "48px",
+                                        height: isGalleryView ? "auto" : "48px",
+                                        aspectRatio: isGalleryView ? "1 / 1" : undefined,
+                                        borderRadius: "6px",
+                                        objectFit: "cover",
+                                        flexShrink: 0
+                                    }}
+                                    alt="post media"
+                                />
+                            )}
                             <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
                                 <span style={{ fontSize: "13px", fontWeight: "bold", color: "#0f73ff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                     @{post.author.handle}
                                 </span>
-                                <span style={{ fontSize: "12px", color: "#94a3b8", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", marginTop: "2px" }}>
+                                <span style={{
+                                    fontSize: "12px",
+                                    color: "#94a3b8",
+                                    display: "-webkit-box",
+                                    WebkitLineClamp: isGalleryView ? 1 : 2, // Show less text in gallery view to keep it neat
+                                    WebkitBoxOrient: "vertical",
+                                    overflow: "hidden",
+                                    marginTop: "2px"
+                                }}>
                                     {post.record.text}
                                 </span>
                             </div>
@@ -288,4 +360,3 @@ export function MultiTagSearch({
         </div>
     )
 }
-
