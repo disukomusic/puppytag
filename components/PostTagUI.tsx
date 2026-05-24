@@ -223,24 +223,51 @@ export function PostTagUI({ url, handle, rkey, suggestedTags = [] }: { url: stri
     }
 
     const submitTag = async (tagText: string) => {
-        const cleanTag = tagText.toLowerCase().trim()
-        if (!cleanTag) return
+        // Split by comma to handle bulk pasting, clean up whitespace and empty strings
+        const tagsToSubmit = tagText.split(',').map(t => t.toLowerCase().trim()).filter(Boolean)
 
-        setIsAdding(false)
+        // If the user presses enter on an empty input, close the input UI
+        if (tagsToSubmit.length === 0) {
+            setIsAdding(false)
+            setInputValue("")
+            setSuggestions([])
+            return
+        }
+
+        // Keep UI open for continuous typing, just clear the input
         setInputValue("")
         setSuggestions([])
-
-        if (!tags.some(t => t.tag === cleanTag)) {
-            setTags(prev => [...prev, { tag: cleanTag, score: 1, userVote: 1 }])
-        }
 
         try {
             const res = await fetch(`https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=${handle}`)
             if (!res.ok) throw new Error("Failed to resolve handle")
             const { did } = await res.json()
-            saveTagToDB(cleanTag, did);
+
+            // Deduplicate incoming tags and filter out ones that already exist in state
+            const uniqueTags = Array.from(new Set(tagsToSubmit));
+            const tagsToSave = uniqueTags.filter(t => !tags.some(existing => existing.tag === t));
+
+            if (tagsToSave.length === 0) return;
+
+            // Update local UI state
+            setTags(prev => {
+                const next = [...prev];
+                tagsToSave.forEach(cleanTag => {
+                    // Double check inside the updater callback to prevent race conditions
+                    if (!next.some(t => t.tag === cleanTag)) {
+                        next.push({ tag: cleanTag, score: 1, userVote: 1 });
+                    }
+                });
+                return next;
+            });
+
+            // Fire off DB saves for all new tags
+            tagsToSave.forEach(cleanTag => {
+                saveTagToDB(cleanTag, did);
+            });
+
         } catch (error) {
-            console.error(`Failed to submit tag #${cleanTag}:`, error)
+            console.error(`Failed to submit tags:`, error)
         }
     }
 
