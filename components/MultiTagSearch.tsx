@@ -38,7 +38,7 @@ export function MultiTagSearch({
         return () => clearTimeout(delay)
     }, [inputValue])
 
-    // Fetch Matching Posts and their rich details
+    // Fetch Matching Posts and their rich details (Custom + Native)
     useEffect(() => {
         if (selectedTags.length === 0) {
             setPostDetails([])
@@ -46,37 +46,74 @@ export function MultiTagSearch({
         }
 
         setIsLoading(true)
-        chrome.runtime.sendMessage(
-            { action: "get_posts_by_multi_tags", payload: { tags: selectedTags } },
-            async (response) => {
-                if (response && response.data && response.data.length > 0) {
-                    try {
-                        const chunks = [];
-                        for (let i = 0; i < response.data.length; i += 25) {
-                            chunks.push(response.data.slice(i, i + 25));
-                        }
 
-                        let allPosts = [];
-                        for (const chunk of chunks) {
-                            const params = new URLSearchParams();
-                            chunk.forEach((p: any) => params.append('uris', `at://${p.did}/app.bsky.feed.post/${p.rkey}`));
-                            const res = await fetch(`https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts?${params.toString()}`);
-                            const data = await res.json();
-                            if (data.posts) {
-                                allPosts = [...allPosts, ...data.posts];
+        // 1. Fetch Custom Tags from Puppytag Supabase
+        const fetchCustomPosts = new Promise<any[]>((resolve) => {
+            chrome.runtime.sendMessage(
+                { action: "get_posts_by_multi_tags", payload: { tags: selectedTags } },
+                async (response) => {
+                    if (response && response.data && response.data.length > 0) {
+                        try {
+                            const chunks = [];
+                            for (let i = 0; i < response.data.length; i += 25) {
+                                chunks.push(response.data.slice(i, i + 25));
                             }
+
+                            let allPosts: any[] = [];
+                            for (const chunk of chunks) {
+                                const params = new URLSearchParams();
+                                chunk.forEach((p: any) => params.append('uris', `at://${p.did}/app.bsky.feed.post/${p.rkey}`));
+                                const res = await fetch(`https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts?${params.toString()}`);
+                                const data = await res.json();
+                                if (data.posts) {
+                                    allPosts = [...allPosts, ...data.posts];
+                                }
+                            }
+                            resolve(allPosts);
+                        } catch (e) {
+                            console.error("Failed to fetch post details from Bluesky API", e);
+                            resolve([]);
                         }
-                        setPostDetails(allPosts);
-                    } catch (e) {
-                        console.error("Failed to fetch post details from Bluesky API", e);
-                        setPostDetails([]);
+                    } else {
+                        resolve([]);
                     }
-                } else {
-                    setPostDetails([]);
                 }
-                setIsLoading(false)
-            }
-        )
+            )
+        });
+
+        // 2. Fetch Native Tags via Background Script (This bypasses CORS!)
+        const fetchNativePosts = new Promise<any[]>((resolve) => {
+            chrome.runtime.sendMessage(
+                { action: "search_native_tags", payload: { tags: selectedTags } },
+                (response) => {
+                    if (response && response.data) {
+                        resolve(response.data);
+                    } else {
+                        console.error("Native tags fetch failed:", response?.error);
+                        resolve([]);
+                    }
+                }
+            );
+        });
+
+        // 3. Run both fetches concurrently, merge, and deduplicate
+        Promise.all([fetchCustomPosts, fetchNativePosts]).then(([customPosts, nativePosts]) => {
+            const combinedPosts = [...customPosts, ...nativePosts];
+
+            // Deduplicate by the unique Bluesky URI
+            const uniquePosts = Array.from(new Map(combinedPosts.map(post => [post.uri, post])).values());
+
+            // Sort by newest first
+            uniquePosts.sort((a, b) => {
+                const dateA = new Date(a.record?.createdAt || 0).getTime();
+                const dateB = new Date(b.record?.createdAt || 0).getTime();
+                return dateB - dateA;
+            });
+
+            setPostDetails(uniquePosts);
+            setIsLoading(false);
+        });
+
     }, [selectedTags])
 
     const addTag = (tag: string) => {
