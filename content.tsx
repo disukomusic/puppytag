@@ -20,7 +20,7 @@ export default function TaggerEngine() {
         }
 
         const observer = new MutationObserver(() => {
-            // 1. Query the containers directly instead of the links
+            // 1. Query  containers directly
             const containers = document.querySelectorAll('div[data-testid^="feedItem"], div[data-testid^="postThreadItem"]')
 
             containers.forEach((container: HTMLElement) => {
