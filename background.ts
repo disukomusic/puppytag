@@ -198,4 +198,68 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         return true;
     }
+
+    // Action: Search native Bluesky tags (Bypasses CORS)
+    if (message.action === "search_native_tags") {
+        const { tags } = message.payload;
+
+        if (!tags || tags.length === 0) {
+            sendResponse({ data: [] });
+            return true;
+        }
+
+        const params = new URLSearchParams();
+
+        // 'q' is a required parameter, so we provide the tags as a space-separated string
+        params.append('q', tags.join(' '));
+        params.append('limit', '30');
+
+        // Append each tag to the dedicated 'tag' parameter for strict AND matching. 
+        // The API specifies to omit the '#' prefix here.
+        tags.forEach((t: string) => {
+            params.append('tag', t);
+        });
+
+        fetch(`https://api.bsky.app/xrpc/app.bsky.feed.searchPosts?${params.toString()}`)
+            .then(res => {
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                return res.json();
+            })
+            .then(data => sendResponse({ data: data.posts || [] }))
+            .catch(err => {
+                console.error("Background fetch native tags failed:", err);
+                sendResponse({ error: err.message, data: [] });
+            });
+
+        return true;
+    }
+
+    // Action: Fetch Automated ML Tag Predictions from Cloudflare Workers AI
+    if (message.action === "predict_tags") {
+        const { text, image_urls, accessJwt } = message.payload;
+
+        if (!accessJwt) {
+            return sendResponse({ tags: [], error: "Not logged in" });
+        }
+
+        fetch(`${WORKER_URL}/predict-tags`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessJwt}`
+            },
+            body: JSON.stringify({ text, image_urls })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                sendResponse({ tags: data.predicted_tags || [], error: null });
+            })
+            .catch(err => {
+                console.error("ML prediction endpoint failed:", err);
+                sendResponse({ tags: [], error: err.message });
+            });
+
+        return true;
+    }
 });

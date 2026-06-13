@@ -20,11 +20,9 @@ export default function TaggerEngine() {
         }
 
         const observer = new MutationObserver(() => {
-            // 1. Query  containers directly
             const containers = document.querySelectorAll('div[data-testid^="feedItem"], div[data-testid^="postThreadItem"]')
 
             containers.forEach((container: HTMLElement) => {
-                // Skip if we already injected our UI here
                 if (container.querySelector('.bsky-tagger-ui')) return
 
                 let handle = ""
@@ -41,8 +39,7 @@ export default function TaggerEngine() {
                     }
                 }
 
-                // STRATEGY B: Fallback for the focused Thread View 
-                // If there's no link, but we are on a post page, it's the root post.
+                // STRATEGY B: Fallback for the focused Thread View
                 if (!rkey || !handle) {
                     const pathMatch = window.location.pathname.match(/\/profile\/([^\/]+)\/post\/([a-zA-Z0-9_-]+)/)
                     if (pathMatch) {
@@ -51,13 +48,17 @@ export default function TaggerEngine() {
                     }
                 }
 
-                // If both strategies fail, abort injection for this container
                 if (!rkey || !handle) return
 
+                // --- EXTRACT INPUT DATA FOR MULTIMODAL AI ---
                 const postTextElement = container.querySelector('div[data-testid="postText"]');
                 const textContent = postTextElement ? postTextElement.textContent : "";
-                const hashtagMatches = textContent?.match(/#([a-zA-Z0-9_]+)/g);
 
+                // Query image components within this post container (ignoring avatar thumbnails)
+                const imageElements = container.querySelectorAll('img[src*="/feed_thumbnail/"]');
+                const imageUrls = Array.from(imageElements).map((img: HTMLImageElement) => img.src);
+
+                const hashtagMatches = textContent?.match(/#([a-zA-Z0-9_]+)/g);
                 const suggestedTags = hashtagMatches
                     ? Array.from(new Set(hashtagMatches.map(t => t.slice(1).toLowerCase())))
                     : [];
@@ -74,6 +75,8 @@ export default function TaggerEngine() {
                         handle={handle}
                         rkey={rkey}
                         suggestedTags={suggestedTags}
+                        postText={textContent || ""}
+                        imageUrls={imageUrls}
                     />
                 )
             })
