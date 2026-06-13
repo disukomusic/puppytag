@@ -233,4 +233,33 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         return true;
     }
+
+    // Action: Fetch Automated ML Tag Predictions from Cloudflare Workers AI
+    if (message.action === "predict_tags") {
+        const { text, image_urls, accessJwt } = message.payload;
+
+        if (!accessJwt) {
+            return sendResponse({ tags: [], error: "Not logged in" });
+        }
+
+        fetch(`${WORKER_URL}/predict-tags`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessJwt}`
+            },
+            body: JSON.stringify({ text, image_urls })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                sendResponse({ tags: data.predicted_tags || [], error: null });
+            })
+            .catch(err => {
+                console.error("ML prediction endpoint failed:", err);
+                sendResponse({ tags: [], error: err.message });
+            });
+
+        return true;
+    }
 });

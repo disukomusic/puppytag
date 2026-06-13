@@ -2,11 +2,22 @@
 import { createPortal } from "react-dom"
 import { useBlueskySession } from "../hooks/useBlueskySession"
 import puppyTagIcon from "../assets/PuppyTagActionButton32px.png"
-
-export function PostTagUI({ url, handle, rkey, suggestedTags = [] }: { url: string, handle: string, rkey: string, suggestedTags?: string[] }) {
+// 1. Correctly apply the interface to your function parameters
+export function PostTagUI({
+                              url,
+                              handle,
+                              rkey,
+                              suggestedTags = [],
+                              postText,
+                              imageUrls
+                          }: PostTagUIProps) {
     const [tags, setTags] = useState<{tag: string, score: number, userVote: number}[]>([])
+
+    // 2. ADD THIS MISSING STATE VARIABLE
+    const [aiSuggestions, setAiSuggestions] = useState<string[]>([])
+
     const [isAdding, setIsAdding] = useState(false)
-    const [isExpanded, setIsExpanded] = useState(false) // Controls visibility of the bottom section
+    const [isExpanded, setIsExpanded] = useState(false)
     const [inputValue, setInputValue] = useState("")
     const [suggestions, setSuggestions] = useState<string[]>([])
 
@@ -18,9 +29,11 @@ export function PostTagUI({ url, handle, rkey, suggestedTags = [] }: { url: stri
 
     const { currentUserDid, currentUserHandle, currentUserJwt } = useBlueskySession()
 
-    // Calculate which suggested tags haven't been added to the database yet
-    const unaddedSuggestions = suggestedTags.filter(st => !tags.some(t => t.tag === st));
+    // 3. COMBINE REGEX AND AI SUGGESTIONS TOGETHER HERE
+    const totalSuggestions = Array.from(new Set([...suggestedTags, ...aiSuggestions]))
+    const unaddedSuggestions = totalSuggestions.filter(st => !tags.some(t => t.tag === st))
 
+    const [isAiLoading, setIsAiLoading] = useState(false)
     // 2. Fetch Tags
     useEffect(() => {
         chrome.runtime.sendMessage(
@@ -36,6 +49,31 @@ export function PostTagUI({ url, handle, rkey, suggestedTags = [] }: { url: stri
             }
         )
     }, [rkey, currentUserDid])
+
+    const handleAiPredict = (e: React.MouseEvent) => {
+        stopPropagation(e);
+        if (!currentUserJwt || imageUrls.length === 0) return;
+
+        setIsAiLoading(true);
+
+        chrome.runtime.sendMessage({
+            action: "predict_tags",
+            payload: {
+                text: postText,
+                image_urls: imageUrls,
+                accessJwt: currentUserJwt
+            }
+        }, (response) => {
+            setIsAiLoading(false);
+
+            if (response && response.tags && response.tags.length > 0) {
+                setAiSuggestions(response.tags);
+            } else if (response && response.error) {
+                console.error("AI Error:", response.error);
+                alert("AI Prediction failed: " + response.error);
+            }
+        });
+    };
 
     // --- UPDATED: Robust Portal Injection Logic ---
     useEffect(() => {
@@ -443,6 +481,10 @@ export function PostTagUI({ url, handle, rkey, suggestedTags = [] }: { url: stri
                     0% { opacity: 0; transform: scale(0.85); }
                     100% { opacity: 1; transform: scale(1); }
                 }
+                @keyframes pulseText {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.5; }
+                }
                 @keyframes dropdownSlide {
                     0% { opacity: 0; transform: translateY(-6px); }
                     100% { opacity: 1; transform: translateY(0); }
@@ -516,6 +558,23 @@ export function PostTagUI({ url, handle, rkey, suggestedTags = [] }: { url: stri
                     );
                 })}
 
+                {isAiLoading && (
+                    <div style={{
+                        background: 'transparent',
+                        color: '#94a3b8',
+                        border: '1px dashed #475569',
+                        borderRadius: '12px',
+                        fontSize: '11px',
+                        padding: '2px 8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        animation: 'pulseText 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                    }}>
+                        Predicting...
+                    </div>
+                )}
+
                 {/* --- 2. SUGGESTED TAGS --- */}
                 {unaddedSuggestions.length > 0 && !isAdding && (
                     <button
@@ -527,6 +586,30 @@ export function PostTagUI({ url, handle, rkey, suggestedTags = [] }: { url: stri
                     </button>
                 )}
 
+                {/* --- 2.5. AI PREDICT BUTTON --- */}
+                {imageUrls.length > 0 && aiSuggestions.length === 0 && !isAiLoading && !isAdding && (
+                    <button
+                        className="tactile-btn"
+                        onClick={handleAiPredict}
+                        style={{
+                            background: 'transparent',
+                            color: '#c084fc',
+                            border: '1px solid #c084fc',
+                            borderRadius: '12px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            padding: '2px 8px',
+                            fontWeight: 'bold',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                        }}
+                        title="Auto-generate tags with AI"
+                    >
+                        Predict Tags
+                    </button>
+                )}
+                
                 {/* --- 3. ADD TAG INPUT / BUTTON --- */}
                 {addTagUI}
 
