@@ -2,7 +2,15 @@
 import { createPortal } from "react-dom"
 import { useBlueskySession } from "../hooks/useBlueskySession"
 import puppyTagIcon from "../assets/PuppyTagActionButton32px.png"
-// 1. Correctly apply the interface to your function parameters
+
+interface PostTagUIProps {
+    url: string;
+    handle: string;
+    rkey: string;
+    suggestedTags?: string[];
+    postText: string;
+    imageUrls: string[];
+}
 export function PostTagUI({
                               url,
                               handle,
@@ -13,7 +21,7 @@ export function PostTagUI({
                           }: PostTagUIProps) {
     const [tags, setTags] = useState<{tag: string, score: number, userVote: number}[]>([])
 
-    // 2. ADD THIS MISSING STATE VARIABLE
+    const [isPredictEnabled, setIsPredictEnabled] = useState(false)
     const [aiSuggestions, setAiSuggestions] = useState<string[]>([])
 
     const [isAdding, setIsAdding] = useState(false)
@@ -29,12 +37,12 @@ export function PostTagUI({
 
     const { currentUserDid, currentUserHandle, currentUserJwt } = useBlueskySession()
 
-    // 3. COMBINE REGEX AND AI SUGGESTIONS TOGETHER HERE
+    // Combine regex and ai suggestions
     const totalSuggestions = Array.from(new Set([...suggestedTags, ...aiSuggestions]))
     const unaddedSuggestions = totalSuggestions.filter(st => !tags.some(t => t.tag === st))
 
     const [isAiLoading, setIsAiLoading] = useState(false)
-    // 2. Fetch Tags
+    // Fetch Tags
     useEffect(() => {
         chrome.runtime.sendMessage(
             { action: "get_tags", payload: { rkey, voter_did: currentUserDid } },
@@ -49,6 +57,25 @@ export function PostTagUI({
             }
         )
     }, [rkey, currentUserDid])
+
+    // Fetch and listen for Settings
+    useEffect(() => {
+        // Initial fetch
+        chrome.storage.local.get(["enablePredictiveTagging"], (res) => {
+            // Default to false if the setting hasn't been set yet
+            setIsPredictEnabled(res.enablePredictiveTagging ?? false)
+        })
+
+        // Live listener
+        const storageListener = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
+            if (areaName === "local" && changes.enablePredictiveTagging) {
+                setIsPredictEnabled(changes.enablePredictiveTagging.newValue)
+            }
+        }
+
+        chrome.storage.onChanged.addListener(storageListener)
+        return () => chrome.storage.onChanged.removeListener(storageListener)
+    }, [])
 
     const handleAiPredict = (e: React.MouseEvent) => {
         stopPropagation(e);
@@ -503,7 +530,6 @@ export function PostTagUI({
             {/* Main Tags Area Container - Uses display none/flex to act as an expander while preserving the ref target */}
             <div ref={uiRef} style={{ display: isVisible ? 'flex' : 'none', gap: '8px', padding: '0px 14px 10px', flexWrap: 'wrap', alignItems: 'center' }}>
 
-                {/* --- 1. THE TAG LOOP --- */}
                 {tags.filter(t => t.score >= -3).map(({tag, score, userVote}) => {
                     const isHovered = hoveredTag === tag;
 
@@ -575,7 +601,7 @@ export function PostTagUI({
                     </div>
                 )}
 
-                {/* --- 2. SUGGESTED TAGS --- */}
+                {/* --- SUGGESTED TAGS --- */}
                 {unaddedSuggestions.length > 0 && !isAdding && (
                     <button
                         className="tactile-btn"
@@ -586,8 +612,8 @@ export function PostTagUI({
                     </button>
                 )}
 
-                {/* --- 2.5. AI PREDICT BUTTON --- */}
-                {imageUrls.length > 0 && aiSuggestions.length === 0 && !isAiLoading && !isAdding && (
+                {/* --- AI PREDICT BUTTON --- */}
+                {imageUrls.length > 0 && aiSuggestions.length === 0 && !isAiLoading && !isAdding && isPredictEnabled && (
                     <button
                         className="tactile-btn"
                         onClick={handleAiPredict}
