@@ -1,0 +1,39 @@
+﻿name: Release Extension Builds
+
+on:
+  push:
+    tags:
+      - 'v*'      # Triggers on tags matching v1.0.0, v0.0.1, etc.
+
+jobs:
+  build:
+    name: Build & Package Extensions
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write   # Required to publish GitHub releases and attach assets
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build & Package Chrome (MV3)
+        run: npm run package:chrome
+
+      - name: Build & Package Firefox
+        run: npm run package:firefox
+
+      - name: Create GitHub Release and Upload Artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/*.zip
+          generate_release_notes: true

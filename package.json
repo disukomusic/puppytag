@@ -7,7 +7,9 @@
   "scripts": {
     "dev": "plasmo dev",
     "build": "plasmo build",
-    "package": "plasmo package"
+    "package": "plasmo package",
+    "package:chrome": "plasmo package --target=chrome-mv3",
+    "package:firefox": "plasmo package --target=firefox-mv3"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.101.1",
