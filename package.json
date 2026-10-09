@@ -27,7 +27,12 @@
   "manifest": {
     "host_permissions": [
       "https://*/*"
-    ]
+    ],
+    "browser_specific_settings": {
+      "gecko": {
+        "id": "bsky-tagger@suko.pet"
+      }
+    }
   },
   "keywords": [],
   "license": "ISC"
