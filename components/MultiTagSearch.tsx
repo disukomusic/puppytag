@@ -285,10 +285,25 @@ export function MultiTagSearch({
         </div>
     )
 
+    const openSettings = () => {
+        // Popups can use the native API, content scripts (sidebar) fall back to window.open
+        if (chrome.runtime.openOptionsPage) {
+            chrome.runtime.openOptionsPage()
+        } else {
+            window.open(chrome.runtime.getURL("options.html"))
+        }
+    }
+
     if (mode === "popup") {
         return (
             <div style={{ padding: 16, width: 350, fontFamily: "sans-serif", background: "#151d28", color: "#fff", minHeight: 400, display: "flex", flexDirection: "column", maxHeight: "600px" }}>
-                <h2 style={{ margin: "0 0 16px 0", fontSize: "16px", color: "#0f73ff" }}>Puppytag Multisearch</h2>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                    <h2 style={{ margin: 0, fontSize: "16px", color: "#0f73ff" }}>Puppytag Multisearch</h2>
+                    <button onClick={openSettings} style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: "16px" }} title="Settings">
+                        ⚙️
+                    </button>
+                </div>
+
                 {renderTagsList()}
                 {/* Results */}
                 <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
@@ -350,7 +365,10 @@ export function MultiTagSearch({
 
             <div style={{ background: '#222e3f', padding: '12px 16px 12px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #222e3f' }}>
                 <h3 style={{ margin: 0, color: '#0f73ff', fontSize: '15px' }}>Puppytag Multisearch</h3>
-                <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '16px' }}>✕</button>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <button onClick={openSettings} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '16px' }} title="Settings">⚙️</button>
+                    <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '16px' }} title="Close">✕</button>
+                </div>
             </div>
 
             <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
