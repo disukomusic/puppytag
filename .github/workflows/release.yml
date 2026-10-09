@@ -3,7 +3,7 @@
 on:
   push:
     tags:
-      - 'v*'      # Triggers on tags matching v1.0.0, v0.0.1, etc.
+      - 'v*'
 
 jobs:
   build:
@@ -11,26 +11,32 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write   # Required to publish GitHub releases and attach assets
+      contents: write
 
     steps:
       - name: Check out code
         uses: actions/checkout@v4
 
+      # Add this step to install pnpm
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: 'pnpm' # Change cache target to pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install # Use pnpm instead of npm ci
 
       - name: Build & Package Chrome (MV3)
-        run: npm run package:chrome
+        run: pnpm run package:chrome
 
       - name: Build & Package Firefox
-        run: npm run package:firefox
+        run: pnpm run package:firefox
 
       - name: Create GitHub Release and Upload Artifacts
         uses: softprops/action-gh-release@v2
